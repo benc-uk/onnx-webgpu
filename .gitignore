@@ -1,0 +1,6 @@
+.vite/
+models/**/*.json
+models/**/*.onnx
+models/**/*.model
+models/**/*.onnx_data
+!models/**/dummy.txt

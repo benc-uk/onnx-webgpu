@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WebGPU ONNX Phi Test App</title>
+
+  <link rel="stylesheet" href="public/main.css">
+
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗿</text></svg>">
+
+  <script type="module" src="./main.js"></script>
+</head>
+
+<body>
+  <h1>Chat with Phi-3-mini using WebGPU & ONNX</h1>
+
+  <p id="status" class="status"></p>
+
+  <textarea class="mb-1 hidden" id="user-input"
+    placeholder="Type your question here ...">Why is strawberry jam so sticky?</textarea>
+
+  <button class="mb-2 hidden" id="stop-button">Stop</button>
+  <button class="mb-2 hidden" id="send-button">Ask Your Question</button>
+
+  <div id="responses"></div>
+</body>
+
+</html>
