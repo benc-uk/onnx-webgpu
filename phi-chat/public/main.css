@@ -1,5 +1,6 @@
 body {
-  padding: 2rem;
+  padding: 1.3rem;
+  margin: 0;
   font-family: Arial, sans-serif;
 }
 
@@ -30,7 +31,7 @@ textarea {
   background-color: #222;
   color: #67d31f;
   padding: 1rem;
-  font-family: "Courier New", Courier, monospace;
+  font-family: 'Courier New', Courier, monospace;
   height: 10rem;
   overflow-y: auto;
   font-size: 1.1rem;
@@ -65,4 +66,20 @@ textarea {
 
 .hidden {
   display: none;
+}
+
+h1 {
+  font-size: 1.7rem;
+  margin: 0rem;
+  padding: 0;
+}
+
+.perf {
+  font-size: 1/1rem;
+  color: #063d2d;
+  background-color: rgb(100, 231, 188);
+  padding: 0.3rem;
+  width: 13rem;
+  border-radius: 4rem;
+  padding-left: 1rem;
 }

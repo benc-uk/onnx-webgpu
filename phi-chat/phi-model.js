@@ -1,20 +1,20 @@
-import * as utils from "../lib/utils.js"
-import { addErrorMsg, addStatusMsg, setResponseText, showQueryControls } from "./ui.js"
+import * as utils from '../lib/utils.js'
+import { addErrorMsg, addStatusMsg, setResponseText, showQueryControls, updatePerf } from './ui.js'
 
-import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/esm/ort.webgpu.min.js"
-import { AutoTokenizer, env as transEnv } from "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1"
+import * as ort from 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/esm/ort.webgpu.min.js'
+import { AutoTokenizer, env as transEnv } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1'
 
-const MODEL = "microsoft/Phi-3-mini-4k-instruct-onnx-web"
-const USE_LOCAL_MODEL = false
+const MODEL = 'microsoft/Phi-3-mini-4k-instruct-onnx-web'
+const LOCAL_MODE = true
 const MAX_TOKENS = 1024
 
 // Setup for transformers.js tokenizer
-transEnv.localModelPath = "../models"
-transEnv.allowRemoteModels = !USE_LOCAL_MODEL
-transEnv.allowLocalModels = USE_LOCAL_MODEL
+transEnv.localModelPath = '../models'
+transEnv.allowRemoteModels = !LOCAL_MODE
+transEnv.allowLocalModels = LOCAL_MODE
 
-// Setup for ORT WASM path override
-ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/"
+// Setup for ORT WASM path override, a local copy of ort-wasm-simd.jsep.wasm is in the public folder
+ort.env.wasm.wasmPaths = LOCAL_MODE ? 'public/' : 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/'
 
 // ================================
 
@@ -28,60 +28,60 @@ export async function setUp() {
   const capability = await utils.GetCapability()
 
   if (capability !== utils.WEBGPU_F16) {
-    addErrorMsg("WebGPU not supported, or not supporting Float16")
+    addErrorMsg('WebGPU not supported, or not supporting Float16')
     return
   }
-  addStatusMsg("🔬 WebGPU and Float16 supported OK")
+  addStatusMsg('🔬 WebGPU and Float16 supported OK')
 
   try {
     tokenizer = await AutoTokenizer.from_pretrained(MODEL)
-    addStatusMsg("📚 Tokenizer ready")
+    addStatusMsg('📚 Tokenizer ready')
 
-    const modelPath = USE_LOCAL_MODEL ? "../models/" + MODEL : "https://huggingface.co/" + MODEL + "/resolve/main"
+    const modelPath = LOCAL_MODE ? '../models/' + MODEL : 'https://huggingface.co/' + MODEL + '/resolve/main'
     addStatusMsg(`📁 Model path: ${modelPath}`)
-    const modelFile = "model_q4f16.onnx"
-    const modelFqn = modelPath + "/onnx/" + modelFile
+    const modelFile = 'model_q4f16.onnx'
+    const modelFqn = modelPath + '/onnx/' + modelFile
     console.log(modelFqn)
 
     // Load the model config
-    addStatusMsg("🛠️ Loading model config...")
-    const json_bytes = await utils.fetchAndCache(modelPath + "/config.json")
+    addStatusMsg('🛠️ Loading model config...')
+    const json_bytes = await utils.fetchAndCache(modelPath + '/config.json')
     let textDecoder = new TextDecoder()
     modelConfig = JSON.parse(textDecoder.decode(json_bytes))
 
     // Load the model weights
-    addStatusMsg("📦 Loading ONNX model...")
+    addStatusMsg('📦 Loading ONNX model...')
     if (!(await utils.checkCache(modelFqn))) {
-      addStatusMsg("⌛ Warning: file not in cache, downloading 800MB can take a while, please be patient...")
+      addStatusMsg('⌛ Warning: file not in cache, downloading 800MB can take a while, please be patient...')
     }
     const modelBytes = await utils.fetchAndCache(modelFqn)
 
     // Load the external data as the phi-3 model has some
-    addStatusMsg("💽 Loading model external data...")
-    if (!(await utils.checkCache(modelPath + "/onnx/" + modelFile + "_data"))) {
-      addStatusMsg("⌛ Warning: file not in cache, downloading 1.4GB can take a while, please be patient...")
+    addStatusMsg('💽 Loading model external data...')
+    if (!(await utils.checkCache(modelPath + '/onnx/' + modelFile + '_data'))) {
+      addStatusMsg('⌛ Warning: file not in cache, downloading 1.4GB can take a while, please be patient...')
     }
-    const externalData = await utils.fetchAndCache(modelPath + "/onnx/" + modelFile + "_data")
+    const externalData = await utils.fetchAndCache(modelPath + '/onnx/' + modelFile + '_data')
     const modelSize = modelBytes.byteLength + externalData.byteLength
 
     addStatusMsg(`🛄 Total size ${Math.round(modelSize / 1024 / 1024)} MB`)
     addStatusMsg(`⏰ Starting ONNX Session...`)
 
     ortSession = await ort.InferenceSession.create(modelBytes, {
-      executionProviders: ["webgpu"],
+      executionProviders: ['webgpu'],
       preferredOutputLocation: {},
       externalData: [
         {
           data: externalData,
-          path: modelFile + "_data",
+          path: modelFile + '_data',
         },
       ],
     })
 
-    addStatusMsg("🚀 Model loaded, session started!")
+    addStatusMsg('🚀 Model loaded, session started!')
     showQueryControls()
   } catch (e) {
-    addErrorMsg("" + e)
+    addErrorMsg('' + e)
   }
 }
 
@@ -91,19 +91,19 @@ async function initFeedKV() {
   const kvDims = [1, modelConfig.num_key_value_heads, 0, modelConfig.hidden_size / modelConfig.num_attention_heads]
 
   for (let i = 0; i < modelConfig.num_hidden_layers; ++i) {
-    feed[`past_key_values.${i}.key`] = new ort.Tensor("float16", new Uint16Array(), kvDims)
-    feed[`past_key_values.${i}.value`] = new ort.Tensor("float16", new Uint16Array(), kvDims)
+    feed[`past_key_values.${i}.key`] = new ort.Tensor('float16', new Uint16Array(), kvDims)
+    feed[`past_key_values.${i}.value`] = new ort.Tensor('float16', new Uint16Array(), kvDims)
   }
 }
 
 //
 function updateFeedKV(outputs) {
   for (const name in outputs) {
-    if (name.startsWith("present")) {
-      let newName = name.replace("present", "past_key_values")
+    if (name.startsWith('present')) {
+      let newName = name.replace('present', 'past_key_values')
 
       const t = feed[newName]
-      if (t.location === "gpu-buffer") {
+      if (t.location === 'gpu-buffer') {
         t.dispose()
       }
 
@@ -127,8 +127,8 @@ export async function queryModel(query, id, continuation = false) {
     truncation: true,
   })
 
-  const inputIds = new ort.Tensor("int64", BigInt64Array.from(rawTokens.map(BigInt)), [1, rawTokens.length])
-  feed["input_ids"] = inputIds
+  const inputIds = new ort.Tensor('int64', BigInt64Array.from(rawTokens.map(BigInt)), [1, rawTokens.length])
+  feed['input_ids'] = inputIds
 
   // This is weird, but it's needed somehow
   outputTokens.push(...inputIds.data)
@@ -136,41 +136,60 @@ export async function queryModel(query, id, continuation = false) {
   let seqLen = outputTokens.length
   const inputLen = inputIds.size
 
-  feed["position_ids"] = new ort.Tensor(
-    "int64",
+  feed['position_ids'] = new ort.Tensor(
+    'int64',
     BigInt64Array.from({ length: inputLen }, (_, i) => BigInt(seqLen - inputLen + i)),
     [1, inputLen]
   )
 
+  const now = performance.now()
+  let firstTokenTime = 0
+  let tokensPerSecond = 0
+  updatePerf(tokensPerSecond.toFixed(2))
+
   let lastToken = 0n
   while (seqLen < MAX_TOKENS && lastToken != 32007 && lastToken != modelConfig.eos_token_id) {
     if (stop) {
-      addStatusMsg("🛑 Stopping generation")
+      addStatusMsg('🛑 Stopping generation')
       break
     }
 
     seqLen = outputTokens.length
-    feed["attention_mask"] = new ort.Tensor(
-      "int64",
+    feed['attention_mask'] = new ort.Tensor(
+      'int64',
       BigInt64Array.from({ length: seqLen }, () => 1n),
       [1, seqLen]
     )
 
+    // Run the model
     const runOutput = await ortSession.run(feed)
+    if (firstTokenTime === 0) {
+      firstTokenTime = performance.now() - now
+      addStatusMsg(`⏱️ First token took ${firstTokenTime.toFixed(2)} ms`)
+    }
 
-    // Use argmax for some reason to get the right token
-    lastToken = BigInt(utils.argmax(runOutput.logits))
-
+    // Use argmax to obtain the most likely token from the logits
+    lastToken = BigInt(utils.logitArgmax(runOutput.logits))
     outputTokens.push(lastToken)
 
+    // Try to estimate the performance in tokens per second
+    tokensPerSecond = (seqLen / (performance.now() - now)) * 1000
+    updatePerf(tokensPerSecond.toFixed(2))
+
+    // Convert output tokens to text
     const words = tokensToText(outputTokens, inputLen)
     setResponseText(id, words)
 
+    // Update the feed with the new key-values
     updateFeedKV(runOutput)
 
-    feed["input_ids"] = new ort.Tensor("int64", BigInt64Array.from([lastToken]), [1, 1])
-    feed["position_ids"] = new ort.Tensor("int64", BigInt64Array.from([BigInt(seqLen)]), [1, 1])
+    // Update the feed with the new token & position
+    feed['input_ids'] = new ort.Tensor('int64', BigInt64Array.from([lastToken]), [1, 1])
+    feed['position_ids'] = new ort.Tensor('int64', BigInt64Array.from([BigInt(seqLen)]), [1, 1])
   }
+  const timeElapsedSecs = (performance.now() - now) / 1000
+  addStatusMsg(`💎 Generation of ${seqLen - inputLen} tokens took ${timeElapsedSecs.toFixed(2)} seconds`)
+  addStatusMsg(`🏃‍♂️ Average speed: ${(seqLen / timeElapsedSecs).toFixed(2)} tokens per second`)
 }
 
 export function stopGeneration() {

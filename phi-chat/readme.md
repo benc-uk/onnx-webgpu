@@ -6,6 +6,8 @@ This project is a mini vanilla JS web application that utilizes the ONNX Web Run
 
 It doesn't use transformers.js and uses the ONNX API directly
 
+It also doesn't use a worker, so everything happens on the UI thread, not ideal!
+
 It's _heavily_ based on this example https://github.com/microsoft/onnxruntime-inference-examples/tree/main/js/chat
 
 ## Running Locally

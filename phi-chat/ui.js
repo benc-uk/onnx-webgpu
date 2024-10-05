@@ -1,25 +1,27 @@
-import { queryModel, stopGeneration } from "./phi-model.js"
-import * as utils from "../lib/utils.js"
+import { queryModel, stopGeneration } from './phi-model.js'
+import * as utils from '../lib/utils.js'
 
-const statusArea = document.getElementById("status")
-const sendButton = document.getElementById("send-button")
-const queryTA = document.getElementById("user-input")
-const stopButton = document.getElementById("stop-button")
-const responses = document.getElementById("responses")
+const statusArea = document.getElementById('status')
+const sendButton = document.getElementById('send-button')
+const queryTA = document.getElementById('user-input')
+const stopButton = document.getElementById('stop-button')
+const responses = document.getElementById('responses')
+const perfCard = document.getElementById('perf-card')
+const perfSpan = document.getElementById('perf')
 
 export function initUI() {
-  sendButton.addEventListener("click", sendQuery)
-  stopButton.addEventListener("click", stopGeneration)
+  sendButton.addEventListener('click', sendQuery)
+  stopButton.addEventListener('click', stopGeneration)
 }
 
 export function addStatusMsg(...status) {
-  statusArea.innerHTML += status + "<br>"
+  statusArea.innerHTML += status + '<br>'
   statusArea.scrollTop = statusArea.scrollHeight
 }
 
 export function addErrorMsg(error) {
-  statusArea.innerHTML += error + "<br>"
-  statusArea.classList.add("error-text")
+  statusArea.innerHTML += error + '<br>'
+  statusArea.classList.add('error-text')
   statusArea.scrollTop = statusArea.scrollHeight
 }
 
@@ -28,17 +30,21 @@ export function setResponseText(id, words) {
 }
 
 export function showQueryControls() {
-  queryTA.classList.remove("hidden")
-  sendButton.classList.remove("hidden")
+  queryTA.classList.remove('hidden')
+  sendButton.classList.remove('hidden')
+
+  perfCard.classList.add('hidden')
 }
 
 export function hideQueryControls() {
-  queryTA.classList.add("hidden")
-  sendButton.classList.add("hidden")
+  queryTA.classList.add('hidden')
+  sendButton.classList.add('hidden')
+
+  perfCard.classList.remove('hidden')
 }
 
 export function addResponseCard(id, query) {
-  const cardDiv = document.createElement("div")
+  const cardDiv = document.createElement('div')
 
   cardDiv.innerHTML = `<div class="card" id="resp-card" readonly="true">
   <h2>💬 ${query}</h2>
@@ -47,11 +53,15 @@ export function addResponseCard(id, query) {
   responses.prepend(cardDiv)
 }
 
+export function updatePerf(tps) {
+  perfSpan.innerText = tps
+}
+
 async function sendQuery() {
   if (!queryTA.value) return
 
   hideQueryControls()
-  stopButton.classList.remove("hidden")
+  stopButton.classList.remove('hidden')
 
   const queryID = utils.randIdFromString(queryTA.value)
   addResponseCard(queryID, queryTA.value)
@@ -59,5 +69,5 @@ async function sendQuery() {
   await queryModel(queryTA.value, queryID)
 
   showQueryControls()
-  stopButton.classList.add("hidden")
+  stopButton.classList.add('hidden')
 }

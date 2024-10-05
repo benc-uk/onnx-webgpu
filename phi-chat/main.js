@@ -1,7 +1,7 @@
-import { setUp } from "./phi-model.js"
-import { initUI } from "./ui.js"
+import { setUp } from './phi-model.js'
+import { initUI } from './ui.js'
 
-window.addEventListener("load", () => {
+window.addEventListener('load', () => {
   initUI()
   setUp()
 })
