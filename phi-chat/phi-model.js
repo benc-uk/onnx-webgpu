@@ -5,7 +5,7 @@ import * as ort from 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/esm/ort.
 import { AutoTokenizer, env as transEnv } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1'
 
 const MODEL = 'microsoft/Phi-3-mini-4k-instruct-onnx-web'
-const LOCAL_MODE = true
+const LOCAL_MODE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
 const MAX_TOKENS = 1024
 
 // Setup for transformers.js tokenizer
