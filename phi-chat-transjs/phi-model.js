@@ -1,5 +1,5 @@
 import { checkCache } from '../lib/utils.js'
-import { addErrorMsg, addStatusMsg, showQueryControls } from './ui.js'
+import { addErrorMsg, addStatusMsg, showQueryControls, setResponseText } from './ui.js'
 
 // ***************************************************************
 // DOES NOT WORK YET!
@@ -8,9 +8,10 @@ import { addErrorMsg, addStatusMsg, showQueryControls } from './ui.js'
 // ***************************************************************
 
 // Using v3 of the Transformers library - still in alpha/beta
-import { env, pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.1'
+import { env, pipeline } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2'
 
 const MODEL = 'microsoft/Phi-3-mini-4k-instruct-onnx-web'
+//const MODEL = 'onnx-community/MobileLLM-125M'
 //const MODEL = 'Xenova/Phi-3-mini-4k-instruct'
 //const MODEL = 'schmuell/Phi-3-mini-4k-instruct-onnx-web'
 const USE_LOCAL_MODEL = false
@@ -27,11 +28,12 @@ export async function setUp() {
   try {
     phiPipeline = await pipeline('text-generation', MODEL, {
       device: 'webgpu',
-      // use_external_data_format: true,
+      use_external_data_format: true,
       dtype: 'q4f16',
+      // dtype: 'fp32',
     })
 
-    console.log(pipeline)
+    // console.log(pipeline)
 
     addStatusMsg('🚀 Model loaded, session started!')
     showQueryControls()
@@ -42,4 +44,15 @@ export async function setUp() {
 
 export async function queryModel(query, id, continuation = false) {
   addStatusMsg(`🧠 Beginning query for "${query}"`)
+
+  try {
+    const response = await phiPipeline(query, { max_new_tokens: 100 })
+    console.log(response)
+    const responseText = response[0].generated_text
+    addStatusMsg(`🎉 Query for "${query}" completed!`)
+
+    setResponseText(id, responseText)
+  } catch (e) {
+    addErrorMsg('' + e)
+  }
 }

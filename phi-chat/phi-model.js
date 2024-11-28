@@ -1,7 +1,7 @@
 import * as utils from '../lib/utils.js'
 import { addErrorMsg, addStatusMsg, setResponseText, showQueryControls, updatePerf } from './ui.js'
 
-import * as ort from 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/esm/ort.webgpu.min.js'
+import { InferenceSession, Tensor, env as OrtEnv } from 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.webgpu.mjs'
 import { AutoTokenizer, env as transEnv } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1'
 
 const MODEL = 'microsoft/Phi-3-mini-4k-instruct-onnx-web'
@@ -14,7 +14,7 @@ transEnv.allowRemoteModels = !LOCAL_MODE
 transEnv.allowLocalModels = LOCAL_MODE
 
 // Setup for ORT WASM path override, a local copy of ort-wasm-simd.jsep.wasm is in the public folder
-ort.env.wasm.wasmPaths = LOCAL_MODE ? 'public/' : 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/'
+OrtEnv.wasm.wasmPaths = LOCAL_MODE ? `${window.location.href}/public/` : 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/'
 
 // ================================
 
@@ -67,7 +67,7 @@ export async function setUp() {
     addStatusMsg(`🛄 Total size ${Math.round(modelSize / 1024 / 1024)} MB`)
     addStatusMsg(`⏰ Starting ONNX Session...`)
 
-    ortSession = await ort.InferenceSession.create(modelBytes, {
+    ortSession = await InferenceSession.create(modelBytes, {
       executionProviders: ['webgpu'],
       preferredOutputLocation: {},
       externalData: [
@@ -81,6 +81,7 @@ export async function setUp() {
     addStatusMsg('🚀 Model loaded, session started!')
     showQueryControls()
   } catch (e) {
+    console.error(e)
     addErrorMsg('' + e)
   }
 }
@@ -91,8 +92,8 @@ async function initFeedKV() {
   const kvDims = [1, modelConfig.num_key_value_heads, 0, modelConfig.hidden_size / modelConfig.num_attention_heads]
 
   for (let i = 0; i < modelConfig.num_hidden_layers; ++i) {
-    feed[`past_key_values.${i}.key`] = new ort.Tensor('float16', new Uint16Array(), kvDims)
-    feed[`past_key_values.${i}.value`] = new ort.Tensor('float16', new Uint16Array(), kvDims)
+    feed[`past_key_values.${i}.key`] = new Tensor('float16', new Uint16Array(), kvDims)
+    feed[`past_key_values.${i}.value`] = new Tensor('float16', new Uint16Array(), kvDims)
   }
 }
 
@@ -127,7 +128,7 @@ export async function queryModel(query, id, continuation = false) {
     truncation: true,
   })
 
-  const inputIds = new ort.Tensor('int64', BigInt64Array.from(rawTokens.map(BigInt)), [1, rawTokens.length])
+  const inputIds = new Tensor('int64', BigInt64Array.from(rawTokens.map(BigInt)), [1, rawTokens.length])
   feed['input_ids'] = inputIds
 
   // This is weird, but it's needed somehow
@@ -136,7 +137,7 @@ export async function queryModel(query, id, continuation = false) {
   let seqLen = outputTokens.length
   const inputLen = inputIds.size
 
-  feed['position_ids'] = new ort.Tensor(
+  feed['position_ids'] = new Tensor(
     'int64',
     BigInt64Array.from({ length: inputLen }, (_, i) => BigInt(seqLen - inputLen + i)),
     [1, inputLen]
@@ -155,7 +156,7 @@ export async function queryModel(query, id, continuation = false) {
     }
 
     seqLen = outputTokens.length
-    feed['attention_mask'] = new ort.Tensor(
+    feed['attention_mask'] = new Tensor(
       'int64',
       BigInt64Array.from({ length: seqLen }, () => 1n),
       [1, seqLen]
@@ -184,8 +185,8 @@ export async function queryModel(query, id, continuation = false) {
     updateFeedKV(runOutput)
 
     // Update the feed with the new token & position
-    feed['input_ids'] = new ort.Tensor('int64', BigInt64Array.from([lastToken]), [1, 1])
-    feed['position_ids'] = new ort.Tensor('int64', BigInt64Array.from([BigInt(seqLen)]), [1, 1])
+    feed['input_ids'] = new Tensor('int64', BigInt64Array.from([lastToken]), [1, 1])
+    feed['position_ids'] = new Tensor('int64', BigInt64Array.from([BigInt(seqLen)]), [1, 1])
   }
   const timeElapsedSecs = (performance.now() - now) / 1000
   addStatusMsg(`💎 Generation of ${seqLen - inputLen} tokens took ${timeElapsedSecs.toFixed(2)} seconds`)
