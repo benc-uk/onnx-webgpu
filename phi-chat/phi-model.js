@@ -5,7 +5,7 @@ import { InferenceSession, Tensor, env as OrtEnv } from 'https://cdn.jsdelivr.ne
 import { AutoTokenizer, env as transEnv } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1'
 
 const MODEL = 'microsoft/Phi-3-mini-4k-instruct-onnx-web'
-const LOCAL_MODE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+const LOCAL_MODE = true //window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
 const MAX_TOKENS = 1024
 
 // Setup for transformers.js tokenizer
@@ -13,7 +13,7 @@ transEnv.localModelPath = '../models'
 transEnv.allowRemoteModels = !LOCAL_MODE
 transEnv.allowLocalModels = LOCAL_MODE
 
-// Setup for ORT WASM path override, a local copy of ort-wasm-simd.jsep.wasm is in the public folder
+// Setup WASM path override, a local copy of ort-wasm assets are in the public folder
 OrtEnv.wasm.wasmPaths = LOCAL_MODE ? `${window.location.href}/public/` : 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/'
 
 // ================================
@@ -51,14 +51,14 @@ export async function setUp() {
 
     // Load the model weights
     addStatusMsg('📦 Loading ONNX model...')
-    if (!(await utils.checkCache(modelFqn))) {
+    if (!(await utils.checkCache(modelFile, 'onnx'))) {
       addStatusMsg('⌛ Warning: file not in cache, downloading 800MB can take a while, please be patient...')
     }
     const modelBytes = await utils.fetchAndCache(modelFqn)
 
     // Load the external data as the phi-3 model has some
     addStatusMsg('💽 Loading model external data...')
-    if (!(await utils.checkCache(modelPath + '/onnx/' + modelFile + '_data'))) {
+    if (!(await utils.checkCache(modelFile + '_data', 'onnx'))) {
       addStatusMsg('⌛ Warning: file not in cache, downloading 1.4GB can take a while, please be patient...')
     }
     const externalData = await utils.fetchAndCache(modelPath + '/onnx/' + modelFile + '_data')
@@ -131,7 +131,7 @@ export async function queryModel(query, id, continuation = false) {
   const inputIds = new Tensor('int64', BigInt64Array.from(rawTokens.map(BigInt)), [1, rawTokens.length])
   feed['input_ids'] = inputIds
 
-  // This is weird, but it's needed somehow
+  // This is weird, coz language models are weird
   outputTokens.push(...inputIds.data)
 
   let seqLen = outputTokens.length
